@@ -19,10 +19,10 @@ def parse_time(value: str) -> datetime:
     if dt.tzinfo is None: 
         raise InputError(f"timestamp must include a timezone: {value!r}")
 
-    return dt.astimezone(timezone.utc); 
+    return dt.astimezone(timezone.utc) 
 
 def format_time(dt: datetime) -> str: 
-    """Format a dateline like 2026-11-06T17:00:00Z"""
+    """Format a datetime like 2026-11-06T17:00:00Z"""
     return dt.astimezone(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 
 def _read_json(path: str): 
@@ -45,7 +45,7 @@ def load_schedule(path: str) -> Schedule:
     except KeyError as e: 
         raise InputError(f"schedule in {path} is missing field {e}") from None
 
-def load_overrides(path: str) -> list[Override]: 
+def load_overrides(path: str | None) -> list[Override]: 
     if path is None: 
         return [] 
     data = _read_json(path)
@@ -55,8 +55,8 @@ def load_overrides(path: str) -> list[Override]:
         return [
             Override(
                 user=item["user"], 
-                start_at = parse_time(item["start_at"]),
-                end_at = parse_time(item["end_at"])
+                start_at=parse_time(item["start_at"]),
+                end_at=parse_time(item["end_at"])
             )
             for item in data
         ]
