@@ -36,23 +36,30 @@ def _read_json(path: str):
 
 def load_schedule(path: str) -> Schedule: 
     data = _read_json(path) 
-    try: 
-        return Schedule(
-            users=tuple(data["users"]), 
+    try:
+        schedule = Schedule(
+            users=tuple(data["users"]),
             handover_start_at=parse_time(data["handover_start_at"]),
-            handover_interval=timedelta(days=data["handover_interval_days"])
+            handover_interval=timedelta(days=data["handover_interval_days"]),
         )
-    except KeyError as e: 
+    except KeyError as e:
         raise InputError(f"schedule in {path} is missing field {e}") from None
+
+    if not schedule.users:
+        raise InputError(f"schedule in {path} must have at least one user")
+    if schedule.handover_interval <= timedelta(0):
+        raise InputError(f"schedule in {path} must have a positive handover_interval_days")
+    
+    return schedule
 
 def load_overrides(path: str | None) -> list[Override]: 
     if path is None: 
-        return [] 
+        return []
     data = _read_json(path)
     if not isinstance(data, list):
         raise InputError(f"overrides in {path} must be a JSON array")
     try: 
-        return [
+        overrides = [
             Override(
                 user=item["user"], 
                 start_at=parse_time(item["start_at"]),
@@ -62,3 +69,9 @@ def load_overrides(path: str | None) -> list[Override]:
         ]
     except KeyError as e: 
         raise InputError(f"an override in {path} is missing field {e}") from None
+    
+    for override in overrides:
+        if override.end_at <= override.start_at:
+            raise InputError(f"override for {override.user} in {path} must end after it starts")
+    
+    return overrides

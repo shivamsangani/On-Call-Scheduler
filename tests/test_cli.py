@@ -100,3 +100,29 @@ def test_timestamp_without_timezone_is_error(tmp_path, capsys):
                        "--from", "2026-11-06T17:00:00", "--until", "2026-11-13T17:00:00Z")
     assert code == 1
     assert "timezone" in err
+
+def test_empty_users_is_error(tmp_path, capsys):
+    schedule = write(tmp_path / "schedule.json", {**SCHEDULE, "users": []})
+    code, _, err = run(capsys, "--schedule", schedule,
+                       "--from", "2026-11-06T17:00:00Z", "--until", "2026-11-13T17:00:00Z")
+    assert code == 1
+    assert "at least one user" in err
+
+
+def test_non_positive_interval_is_error(tmp_path, capsys):
+    schedule = write(tmp_path / "schedule.json", {**SCHEDULE, "handover_interval_days": 0})
+    code, _, err = run(capsys, "--schedule", schedule,
+                       "--from", "2026-11-06T17:00:00Z", "--until", "2026-11-13T17:00:00Z")
+    assert code == 1
+    assert "positive" in err
+
+
+def test_override_ending_before_it_starts_is_error(tmp_path, capsys):
+    schedule = write(tmp_path / "schedule.json", SCHEDULE)
+    overrides = write(tmp_path / "overrides.json", [
+        {"user": "charlie", "start_at": "2026-11-09T22:00:00Z", "end_at": "2026-11-09T17:00:00Z"}
+    ])
+    code, _, err = run(capsys, "--schedule", schedule, "--overrides", overrides,
+                       "--from", "2026-11-06T17:00:00Z", "--until", "2026-11-13T17:00:00Z")
+    assert code == 1
+    assert "must end after it starts" in err
