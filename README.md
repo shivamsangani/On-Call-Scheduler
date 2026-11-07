@@ -29,6 +29,18 @@ $ pip install -r requirements-dev.txt
 $ pytest
 ```
 
+### Anthropic API key (only for `./cover-request`)
+`./render-schedule` and all the tests run without an API key. You only need one to
+let `./cover-request` read plain-English requests with Claude:
+
+```console
+$ pip install -r requirements.txt
+$ export ANTHROPIC_API_KEY=sk-ant-...   # create one at https://console.anthropic.com
+```
+
+No key? Add `--mock --start ... --end ...` to give the times directly and skip the
+LLM (see [Try it without an API key](#try-it-without-an-api-key)).
+
 ## How it works
 This diagram shows the end-to-end flow:
 
