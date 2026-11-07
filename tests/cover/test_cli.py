@@ -36,9 +36,22 @@ def test_mock_request_suggests_charlie_and_previews_override(tmp_path, capsys):
     assert "1. charlie" in out and "2. bob" in out
     assert '"user": "charlie"' in out
     assert '"start_at": "2026-11-11T19:00:00Z"' in out
-    # The preview shows alice handing over to charlie and back again
-    preview = json.loads(out.split("Schedule preview with the override:\n")[1])
-    assert [e["user"] for e in preview] == ["alice", "charlie", "alice"]
+    # The preview shows alice's whole shift, split by charlie's cover
+    preview = out.split("Schedule preview with the override:\n")[1].splitlines()
+    assert preview == [
+        "  alice      2026-11-06T17:00:00Z -> 2026-11-11T19:00:00Z",
+        "  charlie    2026-11-11T19:00:00Z -> 2026-11-11T22:00:00Z   <- cover",
+        "  alice      2026-11-11T22:00:00Z -> 2026-11-13T17:00:00Z",
+    ]
+    assert "\033[" not in out  # no colour codes when not printing to a terminal
+
+
+def test_preview_when_request_starts_at_shift_start(tmp_path, capsys):
+    schedule = write(tmp_path / "schedule.json", SCHEDULE)
+    code, out, _ = run(capsys, *mock_args(schedule, "2026-11-06T17:00:00Z", "2026-11-06T20:00:00Z"))
+    preview = out.split("Schedule preview with the override:\n")[1].splitlines()
+    assert code == 0
+    assert [line.split()[0] for line in preview] == ["charlie", "alice"]
 
 
 def test_request_when_not_on_call_fails(tmp_path, capsys):
@@ -53,6 +66,26 @@ def test_mock_without_times_fails(tmp_path, capsys):
     code, _, err = run(capsys, "--as", "alice", "--schedule", schedule, "--mock")
     assert code == 1
     assert "--start and --end" in err
+
+
+def test_prompt_yes_writes_override(tmp_path, capsys, monkeypatch):
+    schedule = write(tmp_path / "schedule.json", SCHEDULE)
+    overrides = write(tmp_path / "overrides.json", [])
+    monkeypatch.setattr("sys.stdin.isatty", lambda: True)
+    monkeypatch.setattr("builtins.input", lambda _: "y")
+    code, out, _ = run(capsys, *mock_args(schedule), "--overrides", overrides)
+    assert code == 0 and "Added override" in out
+    assert len(json.loads((tmp_path / "overrides.json").read_text())) == 1
+
+
+def test_prompt_no_leaves_file_alone(tmp_path, capsys, monkeypatch):
+    schedule = write(tmp_path / "schedule.json", SCHEDULE)
+    overrides = write(tmp_path / "overrides.json", [])
+    monkeypatch.setattr("sys.stdin.isatty", lambda: True)
+    monkeypatch.setattr("builtins.input", lambda _: "")
+    code, out, _ = run(capsys, *mock_args(schedule), "--overrides", overrides)
+    assert code == 0 and "Added override" not in out
+    assert json.loads((tmp_path / "overrides.json").read_text()) == []
 
 
 def test_write_appends_override_to_file(tmp_path, capsys):
